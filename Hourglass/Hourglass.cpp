@@ -1,5 +1,4 @@
 #include "Hourglass.h"
-#include <chrono>
 
 Hourglass::Hourglass(std::string filename)
 {
@@ -40,6 +39,102 @@ void Hourglass::GenerateTable()
 	m_lookupTable[0b01110000] = 0b00110100;
 	m_lookupTable[0b11011100] = 0b11001101;
 	m_lookupTable[0b01110011] = 0b00110111;
+}
+
+void Hourglass::InitOCL(std::string devicetype, int devicenum, int platformnum)
+{
+	//get all platforms (drivers)
+	std::vector<cl::Platform> all_platforms;
+	std::vector<cl::Device> all_devices;
+
+	cl::Platform::get(&all_platforms);
+	if (all_platforms.size() == 0) {
+		std::cout << " No platforms found. Check OpenCL installation!\n";
+		exit(1);
+	}
+
+
+	cl::Platform default_platform;
+	cl::Device default_device;
+	unsigned int getdevicetype = CL_DEVICE_TYPE_ALL;;
+	if (devicetype == "cpu")
+	{
+		getdevicetype = CL_DEVICE_TYPE_CPU;
+
+	}
+	else if (devicetype == "gpu")
+	{
+		getdevicetype = CL_DEVICE_TYPE_GPU;
+
+	}
+
+	if (getdevicetype != CL_DEVICE_TYPE_ALL)
+	{
+		for (int i = 0; i < all_platforms.size(); ++i)
+		{
+			default_platform = all_platforms[i];
+
+			default_platform.getDevices(getdevicetype, &all_devices);
+			if (all_devices.size() == 0) {
+				continue;
+			}
+
+			default_device = all_devices[0];
+		}
+	}
+	else
+	{
+		default_platform = all_platforms[platformnum];
+
+		default_platform.getDevices(getdevicetype, &all_devices);
+		if (all_devices.size() == 0) {
+			std::cout << " No devices found. Check OpenCL installation!\n";
+			exit(1);
+		}
+
+		default_device = all_devices[devicenum];
+
+
+	}
+	std::cout << "Using device: " << default_platform.getInfo<CL_PLATFORM_NAME>() << "\n";
+	std::cout << "Using device: " << default_device.getInfo<CL_DEVICE_NAME>() << "\n";
+
+	int maxgroupsize = default_device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+
+	cl::Context context({ default_device });
+
+	cl::Program::Sources sources;
+
+	std::string kernel_code = GetKernelCode("./Kernel.txt");
+
+	sources.push_back({ kernel_code.c_str(),kernel_code.length() });
+
+	cl::Program program(context, sources);
+	if (program.build({ default_device }) != CL_SUCCESS) {
+		std::cout << " Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device) << std::endl;
+		exit(1);
+	}
+}
+
+std::string Hourglass::GetKernelCode(std::string inputFilename)
+{
+	std::string kernelcode;
+	std::stringstream contentStream;
+	std::ifstream fileStream(inputFilename);
+
+	if (fileStream)
+	{
+		contentStream << fileStream.rdbuf();
+		fileStream.close();
+
+		kernelcode = contentStream.str();
+	}
+	else
+	{
+		std::cerr << "Kernel " << inputFilename << " not Found!" << std::endl;
+	}
+
+	return kernelcode;
 }
 
 
@@ -160,142 +255,8 @@ void Hourglass::RunSingleThreadCPU()
 		}
 	}
 
-	/*float randomX = twister() / (std::mt19937::max() + 1.0f);
-	float randomY = twister() / (std::mt19937::max() + 1.0f);*/
-
 	++kernelStart;
-	if (kernelStart > 0b11111111)
-	{
-		kernelStart = 1;
-	}
-}
-
-void Hourglass::RunOMP()
-{
-	uint8_t cell1;
-	uint8_t cell2;
-	uint8_t cell3;
-	uint8_t cell4;
-
-	for (int y = kernelStart % 2 + 1; y < m_height; y += 2)
-	{
-		for (int x = kernelStart % 2 + 1; x < m_width; x += 2)
-		{
-			uint8_t kernel = 0b0;
-
-			//BUILDING KERNEL
-			//Top Left
-			if (hourglassArray[(y - 1) * m_width + (x - 1)] == sandColor)
-			{
-				kernel = kernel | 0b01000000;
-			}
-			else if (hourglassArray[(y - 1) * m_width + (x - 1)] == wallColor)
-			{
-				kernel = kernel | 0b11000000;
-			}
-
-			//Top Right
-			if (hourglassArray[(y - 1) * m_width + x] == sandColor)
-			{
-				kernel = kernel | 0b00010000;
-			}
-			else if (hourglassArray[(y - 1) * m_width + x] == wallColor)
-			{
-				kernel = kernel | 0b00110000;
-			}
-
-			//Bottom Left
-			if (hourglassArray[y * m_width + (x - 1)] == sandColor)
-			{
-				kernel = kernel | 0b00000100;
-			}
-			else if (hourglassArray[y * m_width + (x - 1)] == wallColor)
-			{
-				kernel = kernel | 0b00001100;
-			}
-
-			//Bottom Right
-			if (hourglassArray[y * m_width + x] == sandColor)
-			{
-				kernel = kernel | 0b00000001;
-			}
-			else if (hourglassArray[y * m_width + x] == wallColor)
-			{
-				kernel = kernel | 0b00000011;
-			}
-
-			//Looking up new case of built kernel
-			kernel = m_lookupTable[kernel];
-
-			//Getting Cell Values
-			cell1 = kernel >> 6;
-			cell2 = (kernel & 0b00110000) >> 4;
-			cell3 = (kernel & 0b00001100) >> 2;
-			cell4 = (kernel & 0b00000011);
-
-			//Rewriting Cell 1
-			if (cell1 == sandCode)
-			{
-				hourglassArray[(y - 1) * m_width + (x - 1)] = sandColor;
-			}
-			else if (cell1 == emptyCode)
-			{
-				hourglassArray[(y - 1) * m_width + (x - 1)] = emptyColor;
-			}
-			else if (cell1 == wallCode)
-			{
-				hourglassArray[(y - 1) * m_width + (x - 1)] = wallColor;
-			}
-
-			//Rewriting Cell 2
-			if (cell2 == sandCode)
-			{
-				hourglassArray[(y - 1) * m_width + x] = sandColor;
-			}
-			else if (cell2 == emptyCode)
-			{
-				hourglassArray[(y - 1) * m_width + x] = emptyColor;
-			}
-			else if (cell2 == wallCode)
-			{
-				hourglassArray[(y - 1) * m_width + x] = wallColor;
-			}
-
-			//Rewriting Cell 3
-			if (cell3 == sandCode)
-			{
-				hourglassArray[y * m_width + (x - 1)] = sandColor;
-			}
-			else if (cell3 == emptyCode)
-			{
-				hourglassArray[y * m_width + (x - 1)] = emptyColor;
-			}
-			else if (cell3 == wallCode)
-			{
-				hourglassArray[y * m_width + (x - 1)] = wallColor;
-			}
-
-			//Rewriting Cell 4
-			if (cell4 == sandCode)
-			{
-				hourglassArray[y * m_width + x] = sandColor;
-			}
-			else if (cell4 == emptyCode)
-			{
-				hourglassArray[y * m_width + x] = emptyColor;
-			}
-			else if (cell4 == wallCode)
-			{
-				hourglassArray[y * m_width + x] = wallColor;
-			}
-		}
-	}
-
-	/*float randomX = twister() / (std::mt19937::max() + 1.0f);
-	float randomY = twister() / (std::mt19937::max() + 1.0f);*/
-
-	++kernelStart;
-	if (kernelStart > 0b11111111)
+	if (kernelStart > 0b1111111111111111)
 	{
 		kernelStart = 1;
 	}
@@ -305,6 +266,13 @@ void Hourglass::Render(sf::RenderWindow* window)
 {
 	WriteArrayToImage();
 
+	hourglassTexture.loadFromImage(hourglassImage);
+	hourglassSprite.setTexture(hourglassTexture);
+	window->draw(hourglassSprite);
+}
+
+void Hourglass::RenderWithoutRewrite(sf::RenderWindow* window)
+{
 	hourglassTexture.loadFromImage(hourglassImage);
 	hourglassSprite.setTexture(hourglassTexture);
 	window->draw(hourglassSprite);

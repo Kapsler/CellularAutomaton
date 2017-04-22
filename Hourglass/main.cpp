@@ -27,10 +27,6 @@ int main()
 				{
 					window.close();
 				}
-				if(event.key.code == sf::Keyboard::Space)
-				{
-					hourglass.RunSingleThreadCPU();
-				}
 			}
 		}
 		hourglass.RunSingleThreadCPU();

@@ -1,6 +1,11 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <random>
+#include <CL/cl.hpp>
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <chrono>
 
 class Hourglass
 {
@@ -9,8 +14,8 @@ public:
 	~Hourglass();
 
 	void RunSingleThreadCPU();
-	void RunOMP();
 	void Render(sf::RenderWindow* window);
+	void RenderWithoutRewrite(sf::RenderWindow* window);
 
 private:
 
@@ -18,15 +23,18 @@ private:
 	void WriteArrayToImage();
 	void GenerateTable();
 
+	void InitOCL(std::string devicetype, int devicenum, int platformnum);
+	std::string GetKernelCode(std::string inputFilename);
+
 	int m_width, m_height;
-	sf::Uint32* hourglassArray;
+	uint32_t* hourglassArray;
 	sf::Image hourglassImage;
 	sf::Texture hourglassTexture;
 	sf::Sprite hourglassSprite;
 
-	sf::Uint32 sandColor = 0xffff00ff;
-	sf::Uint32 wallColor = 0x000000ff;
-	sf::Uint32 emptyColor = 0xffffffff;
+	uint32_t sandColor = 0xffff00ff;
+	uint32_t wallColor = 0x000000ff;
+	uint32_t emptyColor = 0xffffffff;
 	uint8_t sandCode = 0b01;
 	uint8_t wallCode = 0b11;
 	uint8_t emptyCode = 0b00;
