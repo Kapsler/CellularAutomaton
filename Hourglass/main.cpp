@@ -3,7 +3,7 @@
 
 namespace config
 {
-	static const bool VSYNC = true;	
+	static const bool VSYNC = false;	
 }
 
 int main()
@@ -11,7 +11,7 @@ int main()
 	sf::RenderWindow window(sf::VideoMode(1000, 1000), "Hourglass Automaton");
 	window.setVerticalSyncEnabled(config::VSYNC);
 
-	Hourglass hourglass("./Assets/hourglass150x500.png");
+	Hourglass hourglass("./Assets/hourglass1500x5000.png");
 
 	while (window.isOpen())
 	{
@@ -29,11 +29,11 @@ int main()
 				}
 				if(event.key.code == sf::Keyboard::Space)
 				{
-					hourglass.Run();
+					hourglass.RunSingleThreadCPU();
 				}
 			}
 		}
-		hourglass.Run();
+		hourglass.RunSingleThreadCPU();
 
 		window.clear(sf::Color::Blue);
 		hourglass.Render(&window);
