@@ -1,11 +1,17 @@
 #include <SFML/Graphics.hpp>
+#include "Hourglass.h"
+
+namespace config
+{
+	static const bool VSYNC = true;	
+}
 
 int main()
 {
 	sf::RenderWindow window(sf::VideoMode(1000, 1000), "Hourglass Automaton");
+	window.setVerticalSyncEnabled(config::VSYNC);
 
-	sf::CircleShape shape(100.f);
-	shape.setFillColor(sf::Color::Green);
+	Hourglass hourglass("./Assets/hourglass150x500.png");
 
 	while (window.isOpen())
 	{
@@ -21,18 +27,16 @@ int main()
 				{
 					window.close();
 				}
+				if(event.key.code == sf::Keyboard::Space)
+				{
+					hourglass.Run();
+				}
 			}
 		}
+		hourglass.Run();
 
-
-		window.clear();
-
-
-
-		window.draw(shape);
-
-
-
+		window.clear(sf::Color::Blue);
+		hourglass.Render(&window);
 		window.display();
 	}
 
