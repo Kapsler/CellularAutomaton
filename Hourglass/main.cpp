@@ -11,7 +11,7 @@ int main()
 	sf::RenderWindow window(sf::VideoMode(1000, 1000), "Hourglass Automaton");
 	window.setVerticalSyncEnabled(config::VSYNC);
 
-	Hourglass hourglass("./Assets/hourglass1500x5000.png");
+	Hourglass hourglass("./Assets/hourglass150x500.png");
 
 	while (window.isOpen())
 	{

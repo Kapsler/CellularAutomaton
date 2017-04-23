@@ -28,7 +28,7 @@ private:
 
 	int m_width, m_height;
 	uint32_t* hourglassArray;
-	sf::Image hourglassImage;
+	sf::Image *hourglassImage;
 	sf::Texture hourglassTexture;
 	sf::Sprite hourglassSprite;
 
@@ -36,7 +36,7 @@ private:
 	uint32_t wallColor = 0x000000ff;
 	uint32_t emptyColor = 0xffffffff;
 	uint8_t sandCode = 0b01;
-	uint8_t wallCode = 0b11;
+	uint8_t wallCode = 0b10;
 	uint8_t emptyCode = 0b00;
 
 	uint8_t m_lookupTable[256];

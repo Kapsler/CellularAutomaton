@@ -6,8 +6,9 @@ Hourglass::Hourglass(std::string filename)
 
 	twister.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 
+	hourglassImage = new sf::Image();
 	LoadFromImage(filename);
-	hourglassSprite.setScale(0.1f, 0.1f);
+	hourglassSprite.setScale(1.5f, 1.5f);
 }
 
 Hourglass::~Hourglass()
@@ -33,12 +34,16 @@ void Hourglass::GenerateTable()
 	m_lookupTable[0b01010000] = 0b00000101;
 
 	////Real cases - Sand + Wall
-	m_lookupTable[0b01001100] = 0b00001101;
-	m_lookupTable[0b00010011] = 0b00000111;
-	m_lookupTable[0b11010000] = 0b11000001;
-	m_lookupTable[0b01110000] = 0b00110100;
-	m_lookupTable[0b11011100] = 0b11001101;
-	m_lookupTable[0b01110011] = 0b00110111;
+	m_lookupTable[0b01001000] = 0b00001001;
+	m_lookupTable[0b00010010] = 0b00000110;
+	m_lookupTable[0b10010000] = 0b10000001;
+	m_lookupTable[0b01100000] = 0b00100100;
+	m_lookupTable[0b10011000] = 0b10001001;
+	m_lookupTable[0b01100010] = 0b00100110;
+	m_lookupTable[0b01010010] = 0b00010110;
+	m_lookupTable[0b01011000] = 0b01001001;
+	m_lookupTable[0b10010100] = 0b10000101;
+	m_lookupTable[0b01100001] = 0b00100101;
 }
 
 void Hourglass::InitOCL(std::string devicetype, int devicenum, int platformnum)
@@ -153,40 +158,21 @@ void Hourglass::RunSingleThreadCPU()
 
 			//BUILDING KERNEL
 			//Top Left
-			if (hourglassArray[(y-1) * m_width + (x-1)] == sandColor)
-			{
-				kernel = kernel | 0b01000000;
-			} else if(hourglassArray[(y - 1) * m_width + (x - 1)] == wallColor)
-			{
-				kernel = kernel | 0b11000000;
-			}
+			kernel = kernel | ((hourglassArray[(y - 1) * m_width + (x - 1)] == sandColor) << 6);
+			kernel = kernel | ((hourglassArray[(y - 1) * m_width + (x - 1)] == wallColor) << 7);
+			
 
 			//Top Right
-			if (hourglassArray[(y-1) * m_width + x] == sandColor)
-			{
-				kernel = kernel | 0b00010000;
-			} else if (hourglassArray[(y - 1) * m_width + x] == wallColor)
-			{
-				kernel = kernel | 0b00110000;
-			}
+			kernel = kernel | ((hourglassArray[(y - 1) * m_width + x] == sandColor) << 4);
+			kernel = kernel | ((hourglassArray[(y - 1) * m_width + x] == wallColor) << 5);
 
 			//Bottom Left
-			if (hourglassArray[y * m_width + (x-1)] == sandColor)
-			{
-				kernel = kernel | 0b00000100;
-			} else if (hourglassArray[y * m_width + (x - 1)] == wallColor)
-			{
-				kernel = kernel | 0b00001100;
-			}
+			kernel = kernel | ((hourglassArray[y * m_width + (x - 1)] == sandColor) << 2);
+			kernel = kernel | ((hourglassArray[y * m_width + (x - 1)] == wallColor) << 3);
 
 			//Bottom Right
-			if (hourglassArray[y * m_width + x] == sandColor)
-			{
-				kernel = kernel | 0b00000001;
-			} else if (hourglassArray[y * m_width + x] == wallColor)
-			{
-				kernel = kernel | 0b00000011;
-			}
+			kernel = kernel | ((hourglassArray[y * m_width + x] == sandColor));
+			kernel = kernel | ((hourglassArray[y * m_width + x] == wallColor) << 1);
 
 			//Looking up new case of built kernel
 			kernel = m_lookupTable[kernel];
@@ -266,24 +252,24 @@ void Hourglass::Render(sf::RenderWindow* window)
 {
 	WriteArrayToImage();
 
-	hourglassTexture.loadFromImage(hourglassImage);
+	hourglassTexture.loadFromImage(*hourglassImage);
 	hourglassSprite.setTexture(hourglassTexture);
 	window->draw(hourglassSprite);
 }
 
 void Hourglass::RenderWithoutRewrite(sf::RenderWindow* window)
 {
-	hourglassTexture.loadFromImage(hourglassImage);
+	hourglassTexture.loadFromImage(*hourglassImage);
 	hourglassSprite.setTexture(hourglassTexture);
 	window->draw(hourglassSprite);
 }
 
 void Hourglass::LoadFromImage(std::string filename)
 {
-	hourglassImage.loadFromFile(filename);
+	hourglassImage->loadFromFile(filename);
 
-	m_width = hourglassImage.getSize().x;
-	m_height = hourglassImage.getSize().y;
+	m_width = hourglassImage->getSize().x;
+	m_height = hourglassImage->getSize().y;
 
 	hourglassArray = new sf::Uint32[m_width * m_height];
 
@@ -292,18 +278,20 @@ void Hourglass::LoadFromImage(std::string filename)
 	{
 		for(int x = 0; x < m_width; ++x)
 		{
-			hourglassArray[y * m_width + x] = hourglassImage.getPixel(x, y).toInteger();
+			hourglassArray[y * m_width + x] = hourglassImage->getPixel(x, y).toInteger();
 		}
 	}
 }
 
 void Hourglass::WriteArrayToImage()
 {
+	//hourglassImage->create(m_width, m_height, reinterpret_cast<sf::Uint8*>(hourglassArray));
+
 	for (int y = 0; y < m_height; ++y)
 	{
 		for (int x = 0; x < m_width; ++x)
 		{
-			hourglassImage.setPixel(x, y, sf::Color(hourglassArray[y * m_width + x]));
+			hourglassImage->setPixel(x, y, sf::Color(hourglassArray[y * m_width + x]));
 		}
 	}
 }
