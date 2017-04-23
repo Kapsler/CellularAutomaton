@@ -27,14 +27,14 @@ private:
 	std::string GetKernelCode(std::string inputFilename);
 
 	int m_width, m_height;
-	uint32_t* hourglassArray;
-	sf::Image *hourglassImage;
+	sf::Uint32* hourglassArray;
+	sf::Image hourglassImage;
 	sf::Texture hourglassTexture;
 	sf::Sprite hourglassSprite;
 
-	uint32_t sandColor = 0xffff00ff;
-	uint32_t wallColor = 0x000000ff;
-	uint32_t emptyColor = 0xffffffff;
+	sf::Uint32 sandColor = 0xffff00ff;
+	sf::Uint32 wallColor = 0x000000ff;
+	sf::Uint32 emptyColor = 0xffffffff;
 	uint8_t sandCode = 0b01;
 	uint8_t wallCode = 0b10;
 	uint8_t emptyCode = 0b00;
