@@ -3,15 +3,17 @@
 
 namespace config
 {
+	static const int screenWidth = 900;
+	static const int screenHeight = 900;
 	static const bool VSYNC = false;	
 }
 
 int main()
 {
-	sf::RenderWindow window(sf::VideoMode(1000, 1000), "Hourglass Automaton");
+	sf::RenderWindow window(sf::VideoMode(config::screenWidth, config::screenHeight), "Hourglass Automaton");
 	window.setVerticalSyncEnabled(config::VSYNC);
 
-	Hourglass hourglass("./Assets/hourglass150x500.png");
+	Hourglass hourglass("./Assets/hourglass150x500.png", config::screenWidth, config::screenHeight );
 
 	while (window.isOpen())
 	{
@@ -27,9 +29,13 @@ int main()
 				{
 					window.close();
 				}
+
+				hourglass.handleInput(event.key.code);
 			}
 		}
-		hourglass.RunSingleThreadCPU();
+		//hourglass.RunSingleThreadCPU();
+		//hourglass.RunOMPCPU();
+		hourglass.RunOCL();
 
 		window.clear(sf::Color::Blue);
 		hourglass.Render(&window);
