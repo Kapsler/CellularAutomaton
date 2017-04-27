@@ -12,14 +12,17 @@
 class Hourglass
 {
 public:
-	Hourglass(std::string filename, int screenWidth, int screenHeight);
+	Hourglass(std::string filename, int screenWidth, int screenHeight, const char* mode, const char* devicetype);
 	~Hourglass();
 
 	void RunSingleThreadCPU();
 	void RunOMPCPU();
 	void RunOCL();
 	void Render(sf::RenderWindow* window);
+	void ResetScale();
 	void handleInput(sf::Keyboard::Key key);
+	void handleInput(sf::Event::MouseButtonEvent e);
+	void handleInput(sf::RenderWindow* window);
 
 private:
 
@@ -27,6 +30,8 @@ private:
 	void GenerateTables();
 	void RotateImage(int degrees);
 	void ScaleImage(float factor);
+	void ModifyCells(sf::Color color);
+	void ChangeSelection(int pixel);
 
 	void InitOCL(std::string devicetype, int devicenum, int platformnum);
 	std::string GetKernelCode(std::string inputFilename);
@@ -55,6 +60,10 @@ private:
 	unsigned long m_randoms[2048];
 
 	int m_kernelStart = 1;
+	sf::Vector2i mousePos = sf::Vector2i();
+	float m_scale;
+
+	sf::CircleShape mouseCircle;
 
 	//OpenCL
 	cl::Buffer hourglassArrayBuffer, widthBuffer, heightBuffer, kernelOffsetBuffer, colorLUTBuffer, kernelLUTBuffer, randomsBuffer;

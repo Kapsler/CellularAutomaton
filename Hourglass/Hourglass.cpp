@@ -1,6 +1,6 @@
 #include "Hourglass.h"
 
-Hourglass::Hourglass(std::string filename, int screenWidth, int screenHeight)
+Hourglass::Hourglass(std::string filename, int screenWidth, int screenHeight, const char* mode, const char* devicetype)
 	: m_screenWidth(screenWidth)
 	, m_screenHeight(screenHeight)
 {
@@ -15,12 +15,21 @@ Hourglass::Hourglass(std::string filename, int screenWidth, int screenHeight)
 	//Load array from file
 	LoadFromImage(filename);
 	
-	float scale = std::min(static_cast<float>(m_screenWidth) / static_cast<float>(m_width), static_cast<float>(m_screenHeight) / static_cast<float>(m_height));
+	m_scale = std::min(static_cast<float>(m_screenWidth) / static_cast<float>(m_width), static_cast<float>(m_screenHeight) / static_cast<float>(m_height));
 
-	hourglassSprite.setScale(scale, scale);
+	hourglassSprite.setScale(m_scale, m_scale);
 	
 	//Init OpenCL
-	InitOCL("cpu", 0, 0);
+	if(strcmp(mode, "ocl") == 0)
+	{
+		InitOCL(devicetype, 0, 0);
+	}
+
+	mouseCircle.setRadius(20);
+	mouseCircle.setFillColor(sf::Color::Transparent);
+	mouseCircle.setOutlineColor(sf::Color::Red);
+	mouseCircle.setOutlineThickness(2.0f);
+	mouseCircle.setOrigin(mouseCircle.getRadius(), mouseCircle.getRadius());
 }
 
 Hourglass::~Hourglass()
@@ -93,7 +102,46 @@ void Hourglass::RotateImage(int degrees)
 
 void Hourglass::ScaleImage(float factor)
 {
-	hourglassSprite.scale(factor, factor);
+	m_scale *= factor;
+	hourglassSprite.setScale(m_scale, m_scale);
+}
+
+void Hourglass::ModifyCells(sf::Color color)
+{
+	sf::RenderTexture tex;
+	tex.create(m_width, m_height);
+
+	//Sprite of hourglass
+	sf::Sprite sprite;
+	sprite.setTexture(hourglassTexture);
+	sprite.setOrigin(sprite.getLocalBounds().width / 2.0f, sprite.getLocalBounds().height / 2.0f);
+	sprite.setPosition(m_width / 2.0f, m_height / 2.0f);
+
+	//Circle to delete
+	sf::CircleShape deleteCircle(mouseCircle);
+	deleteCircle.setFillColor(color);
+	deleteCircle.setOutlineThickness(0.0f);
+	deleteCircle.setPosition((float)mousePos.x / (float)m_screenWidth * (float)m_width, (float)mousePos.y / (float)m_screenHeight * (float)m_height);
+
+	tex.clear(sf::Color::Blue);
+	tex.draw(sprite);
+	tex.draw(deleteCircle);
+	tex.display();
+
+	hourglassImage = tex.getTexture().copyToImage();
+
+	memcpy(hourglassArray, hourglassImage.getPixelsPtr(), m_width * m_height * sizeof(sf::Uint32));
+	queue_hourglass.enqueueWriteBuffer(hourglassArrayBuffer, CL_FALSE, 0, sizeof(sf::Uint32) * m_width * m_height, hourglassArray);
+}
+
+void Hourglass::ChangeSelection(int pixel)
+{
+	int newRadius = mouseCircle.getRadius() + pixel;
+	if (newRadius > 0)
+	{
+		mouseCircle.setRadius(newRadius);
+		mouseCircle.setOrigin(mouseCircle.getRadius(), mouseCircle.getRadius());
+	}
 }
 
 void Hourglass::InitOCL(std::string devicetype, int devicenum, int platformnum)
@@ -368,12 +416,24 @@ void Hourglass::Render(sf::RenderWindow* window)
 	//Write array to image
 	memcpy(const_cast<sf::Uint8*>(hourglassImage.getPixelsPtr()), hourglassArray, m_width * m_height * sizeof(sf::Uint32));
 
+	//MouseCircle
+	mouseCircle.setPosition(mousePos.x, mousePos.y);
+
 	//Format output sprite
 	hourglassTexture.loadFromImage(hourglassImage);
 	hourglassSprite.setTexture(hourglassTexture, true);
 	hourglassSprite.setOrigin(hourglassSprite.getLocalBounds().width / 2.0f, hourglassSprite.getLocalBounds().height / 2.0f);
 	hourglassSprite.setPosition(m_screenWidth / 2.0f, m_screenHeight / 2.0f);
+
 	window->draw(hourglassSprite);
+	window->draw(mouseCircle);
+}
+
+void Hourglass::ResetScale()
+{
+	m_scale = std::min(static_cast<float>(m_screenWidth) / static_cast<float>(m_width), static_cast<float>(m_screenHeight) / static_cast<float>(m_height));
+
+	hourglassSprite.setScale(m_scale, m_scale);
 }
 
 void Hourglass::handleInput(sf::Keyboard::Key key)
@@ -394,6 +454,39 @@ void Hourglass::handleInput(sf::Keyboard::Key key)
 	{
 		RotateImage(45);
 	}
+	if(key == sf::Keyboard::Add)
+	{
+		ChangeSelection(10);
+	}
+	if (key == sf::Keyboard::Subtract)
+	{
+		ChangeSelection(-10);
+	}
+	if (key == sf::Keyboard::R)
+	{
+		ResetScale();
+	}
+}
+
+void Hourglass::handleInput(sf::Event::MouseButtonEvent e)
+{
+	if(e.button == sf::Mouse::Button::Left)
+	{
+		ModifyCells(sf::Color::Black);
+	}
+	else if (e.button == sf::Mouse::Button::Right)
+	{
+		ModifyCells(sf::Color::Yellow);
+	}
+	else if (e.button == sf::Mouse::Button::Middle)
+	{
+		ModifyCells(sf::Color::Blue);
+	}
+}
+
+void Hourglass::handleInput(sf::RenderWindow* window)
+{
+	mousePos = sf::Mouse::getPosition(*window);
 }
 
 void Hourglass::LoadFromImage(std::string filename)

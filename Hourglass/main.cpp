@@ -1,5 +1,12 @@
 #include <SFML/Graphics.hpp>
 #include "Hourglass.h"
+#include <Windows.h>
+#include "TimerClass.h"
+#include "CommandLineParser.h"
+
+extern "C" {
+	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+}
 
 namespace config
 {
@@ -8,12 +15,55 @@ namespace config
 	static const bool VSYNC = false;	
 }
 
-int main()
+namespace commandLine
+{
+	string mode, devicetype;
+	bool measure;
+}
+
+bool handleParameters(int argc, char* argv[])
+{
+	CommandLineParser input(argc, argv);
+	
+
+	if (input.cmdOptionExists("--mode"))
+	{
+		commandLine::mode = input.getCmdOption("--mode");
+	}
+	else
+	{
+		cerr << "Parameter --mode not found!" << endl;
+		return false;
+	}
+
+	if (commandLine::mode == "ocl")
+	{
+		if (input.cmdOptionExists("--device"))
+		{
+			commandLine::devicetype = input.getCmdOption("--device");
+		}
+	}
+
+	if (input.cmdOptionExists("--measure"))
+	{
+		commandLine::measure = true;
+	} else
+	{
+		commandLine::measure = false;
+	}
+
+	return true;
+}
+
+int main(int argc, char* argv[])
 {
 	sf::RenderWindow window(sf::VideoMode(config::screenWidth, config::screenHeight), "Hourglass Automaton");
 	window.setVerticalSyncEnabled(config::VSYNC);
 
-	Hourglass hourglass("./Assets/hourglass150x500.png", config::screenWidth, config::screenHeight );
+	handleParameters(argc, argv);
+
+	Hourglass hourglass("./Assets/hourglass300x1000.png", config::screenWidth, config::screenHeight, commandLine::mode.c_str(), commandLine::devicetype.c_str());
+	TimerClass timer;
 
 	while (window.isOpen())
 	{
@@ -31,11 +81,37 @@ int main()
 				}
 
 				hourglass.handleInput(event.key.code);
+			} else if (event.type == sf::Event::MouseButtonPressed)
+			{
+				hourglass.handleInput(event.mouseButton);
+			} else if (event.type == sf::Event::MouseMoved)
+			{
+				hourglass.handleInput(&window);
 			}
 		}
-		//hourglass.RunSingleThreadCPU();
-		//hourglass.RunOMPCPU();
-		hourglass.RunOCL();
+
+		double kernelTime = 0.0;
+
+		if(commandLine::mode == "seq")
+		{
+			timer.StartTimer();
+			hourglass.RunSingleThreadCPU();
+			kernelTime = timer.GetTime();
+		} else if(commandLine::mode == "omp")
+		{
+			timer.StartTimer();
+			hourglass.RunOMPCPU();
+			kernelTime = timer.GetTime();
+		} else if (commandLine::mode == "ocl")
+		{
+			timer.StartTimer();
+			hourglass.RunOCL();
+			kernelTime = timer.GetTime();
+		}
+		if(commandLine::measure)
+		{
+			printf("Kernel Time: %f\r\n", kernelTime);
+		}
 
 		window.clear(sf::Color::Blue);
 		hourglass.Render(&window);
